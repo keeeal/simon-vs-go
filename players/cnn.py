@@ -1,4 +1,6 @@
 
+from pathlib import Path
+
 import torch
 
 from dlgo.goboard_fast import GameState, Move
@@ -11,7 +13,7 @@ from utils.func import flatten
 
 class CNNPlayer:
     def __init__(self) -> None:
-        self.model = UNet2d(in_channels=1, out_channels=1, width=1, n_conv=1, n_pool=2,)
+        self.model = UNet2d(in_channels=1, out_channels=1, width=1, n_conv=1, n_pool=2)
 
     def select_move(self, game: GameState) -> Move:
         num_rows, num_cols = game.board.num_rows, game.board.num_cols
@@ -53,5 +55,5 @@ class CNNPlayer:
         
         self.model.load_state_dict(state)
 
-            
-
+    def save_parameters(self, path: Path):
+        torch.save(self.model.state_dict(), path)
