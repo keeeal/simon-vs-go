@@ -9,17 +9,14 @@ from players.human import HumanPlayer
 from players.random import RandomPlayer
 
 
-BOARD_SIZE = 9
-
-
-def play(black: str, white: str, verbose: bool):
+def play(black: str, white: str, board_size: int, verbose: bool):
     player_classes = {
         "human": HumanPlayer,
         "random": RandomPlayer,
     }
 
-    black_player = player_classes.get(black, CNNPlayer)()
-    white_player = player_classes.get(white, CNNPlayer)()
+    black_player = player_classes.get(black, CNNPlayer)(board_size)
+    white_player = player_classes.get(white, CNNPlayer)(board_size)
 
     if isinstance(black_player, CNNPlayer):
         black_player.load_parameters(black)
@@ -27,7 +24,7 @@ def play(black: str, white: str, verbose: bool):
     if isinstance(white_player, CNNPlayer):
         white_player.load_parameters(white)
 
-    game = GameState.new_game(BOARD_SIZE)
+    game = GameState.new_game(board_size)
 
     while not game.is_over():
         if verbose:
@@ -51,5 +48,6 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('-b', '--black')
     parser.add_argument('-w', '--white')
+    parser.add_argument('-b', '--board-size', type=int, default=9)
     parser.add_argument('-v', '--verbose', action="store_true")
     play(**vars(parser.parse_args()))

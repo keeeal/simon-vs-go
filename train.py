@@ -15,11 +15,8 @@ from dlgo.scoring import compute_game_result
 from players.cnn import CNNPlayer
 
 
-BOARD_SIZE = 9
-
-
-def play_game(black_player: CNNPlayer, white_player: CNNPlayer) -> CNNPlayer:
-    game = GameState.new_game(BOARD_SIZE)
+def play_game(black_player: CNNPlayer, white_player: CNNPlayer, board_size: int) -> CNNPlayer:
+    game = GameState.new_game(board_size)
 
     while not game.is_over():
         if game.next_player == Player.black:
@@ -33,14 +30,14 @@ def play_game(black_player: CNNPlayer, white_player: CNNPlayer) -> CNNPlayer:
     return black_player if result.winner == Player.black else white_player
 
 
-def select(population: list[CNNPlayer]) -> list[CNNPlayer]:
+def select(population: list[CNNPlayer], board_size: int) -> list[CNNPlayer]:
     winners = []
 
     for _ in range(2):
         shuffle(population)
 
         for i, j in zip(population[0::2], population[1::2]):
-            winners.append(play_game(i, j))
+            winners.append(play_game(i, j, board_size))
 
     return winners
 
@@ -73,11 +70,9 @@ def save(population: list[CNNPlayer], output_dir: Path):
         i.save_parameters((output_dir / str(n)).with_suffix(".params"))
 
 
-def train():
+def train(board_size: int, pop_size: int):
     output_dir = Path("output") / str(datetime.now())
-
-    pop_size = 100
-    population = [CNNPlayer() for _ in range(pop_size)]
+    population = [CNNPlayer(board_size) for _ in range(pop_size)]
 
     for generation in count():
         print(f"\n{generation = }")
@@ -87,7 +82,7 @@ def train():
         generation_dir.mkdir(parents=True)
         save(population, generation_dir)
 
-        population = select(population)
+        population = select(population, board_size)
         population = crossover(population, p=0.7)
         population = mutate(population, p=0.2)
 
@@ -96,4 +91,6 @@ def train():
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument('-b', '--board-size', type=int, default=9)
+    parser.add_argument('-pop', '--pop-size', type=int, default=100)
     train(**vars(parser.parse_args()))

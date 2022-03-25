@@ -2,6 +2,9 @@ from dlgo.goboard_fast import GameState, Move
 from dlgo.utils import point_from_coords
 
 class HumanPlayer:
+    def __init__(self, board_size: int) -> None:
+        pass
+
     def select_move(self, game: GameState) -> Move:
         while True:
             i = input("-- ").upper().strip()
