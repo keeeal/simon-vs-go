@@ -11,9 +11,8 @@ class RandomPlayer:
                 row=randint(1, game.board.num_rows),
                 col=randint(1, game.board.num_cols),
             )
+            
             move = Move.play(point)
-
-            print(game.board._grid)
 
             if game.is_valid_move(move):
                 return move

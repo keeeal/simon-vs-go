@@ -1,7 +1,8 @@
+from argparse import ArgumentParser
 from datetime import datetime
 from itertools import count
 from pathlib import Path
-import random
+from random import random, shuffle
 from time import time
 
 from deap.tools.crossover import cxTwoPoint
@@ -32,12 +33,11 @@ def play_game(black_player: CNNPlayer, white_player: CNNPlayer) -> CNNPlayer:
     return black_player if result.winner == Player.black else white_player
 
 
-def select(population: list[CNNPlayer], shuffle: bool = True) -> list[CNNPlayer]:
+def select(population: list[CNNPlayer]) -> list[CNNPlayer]:
     winners = []
 
     for _ in range(2):
-        if shuffle:
-            random.shuffle(population)
+        shuffle(population)
 
         for i, j in zip(population[0::2], population[1::2]):
             winners.append(play_game(i, j))
@@ -46,13 +46,12 @@ def select(population: list[CNNPlayer], shuffle: bool = True) -> list[CNNPlayer]
 
 
 def crossover(
-    population: list[CNNPlayer], p: float, shuffle: bool = True
+    population: list[CNNPlayer], p: float
 ) -> list[CNNPlayer]:
-    if shuffle:
-        random.shuffle(population)
+    shuffle(population)
 
     for i, j in zip(population[0::2], population[1::2]):
-        if random.random() < p:
+        if random() < p:
             p_i, p_j = cxTwoPoint(i.get_parameters(), j.get_parameters())
             i.set_parameters(p_i)
             j.set_parameters(p_j)
@@ -62,7 +61,7 @@ def crossover(
 
 def mutate(population: list[CNNPlayer], p: float):
     for i in population:
-        if random.random() < p:
+        if random() < p:
             p_i = mutGaussian(i.get_parameters(), mu=0, sigma=0.2, indpb=0.05)[0]
             i.set_parameters(p_i)
 
@@ -74,8 +73,10 @@ def save(population: list[CNNPlayer], output_dir: Path):
         i.save_parameters((output_dir / str(n)).with_suffix(".params"))
 
 
-def train(pop_size: int = 100):
+def train():
     output_dir = Path("output") / str(datetime.now())
+
+    pop_size = 100
     population = [CNNPlayer() for _ in range(pop_size)]
 
     for generation in count():
@@ -94,4 +95,5 @@ def train(pop_size: int = 100):
 
 
 if __name__ == "__main__":
-    train()
+    parser = ArgumentParser()
+    train(**vars(parser.parse_args()))
