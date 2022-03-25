@@ -18,12 +18,12 @@ class CNNPlayer:
     def __init__(self, board_size: int) -> None:
         self.board_size = board_size
         self.noise_size = ceil(board_size / 2)
+        self.noise_shape = [1] + 2 * [self.noise_size]
         self.pad = ReflectionPad2d(2 * (0, self.board_size - self.noise_size))
-        self.noise = torch.empty([1] + 2 * [self.noise_size])
-        self.model = UNet2d(in_channels=2, out_channels=1, width=1, n_conv=1, n_pool=2)
+        self.model = UNet2d(in_channels=2, out_channels=1, width=8, n_pool=3)
+        self.fitness = 0
 
-        n_params = len(self.get_parameters())
-        self.set_parameters([gauss(mu=0, sigma=1) for _ in range(n_params)])
+        self.set_noise([gauss(mu=0, sigma=.5) for _ in range(pow(self.noise_size, 2))])
 
     def select_move(self, game: GameState) -> Move:
         zeros = torch.zeros([1] + 2 * [self.board_size])
@@ -41,7 +41,7 @@ class CNNPlayer:
         while True:
             best_value = value.max()
 
-            if best_value < 0:
+            if best_value < .15:
                 return Move.pass_turn()
 
             row, col = (value == best_value).nonzero()[0]
@@ -54,7 +54,7 @@ class CNNPlayer:
             value[point.row - 1, point.col - 1] = -torch.inf
     
     def set_noise(self, value: list[float]):
-        self.noise = torch.tensor(value).reshape(self.noise.shape)
+        self.noise = torch.tensor(value).reshape(self.noise_shape)
         self.padded_noise = self.pad(self.noise)
     
     def get_parameters(self) -> list[float]:
