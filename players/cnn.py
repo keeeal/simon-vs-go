@@ -1,5 +1,6 @@
 
 from csv import reader, writer
+from itertools import chain
 from math import ceil, prod
 from pathlib import Path
 from random import gauss
@@ -11,16 +12,15 @@ from dlgo.goboard_fast import GameState, Move
 from dlgo.gotypes import Player, Point
 
 from model.unet import UNet2d
-from utils.func import flatten
 
 
 class CNNPlayer:
     def __init__(self, board_size: int) -> None:
         self.board_size = board_size
         self.noise_size = ceil(board_size / 2)
-        self.noise_shape = [3] + 2 * [self.noise_size]
+        self.noise_shape = [1] + 2 * [self.noise_size]
         self.pad = ReflectionPad2d(2 * (0, self.board_size - self.noise_size))
-        self.model = UNet2d(in_channels=4, out_channels=1, width=8, n_pool=3)
+        self.model = UNet2d(in_channels=2, out_channels=1, width=16, n_pool=3)
         self.fitness = 0
 
         self.set_noise([gauss(mu=0, sigma=.5) for _ in range(prod(self.noise_shape))])
@@ -59,9 +59,9 @@ class CNNPlayer:
         self.padded_noise = self.pad(self.noise)
 
     def get_parameters(self) -> list[float]:
-        params = [p.tolist() for p in self.model.parameters()]
-        noise = self.noise.tolist()
-        return flatten([params, noise])
+        params = [p.flatten().tolist() for p in self.model.parameters()]
+        params.append(self.noise.flatten().tolist())
+        return list(chain(*params))
 
     def set_parameters(self, value: list[float]):
         state = self.model.state_dict()

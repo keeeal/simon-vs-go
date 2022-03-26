@@ -7,6 +7,7 @@ from random import random, shuffle
 from time import time
 
 from deap.tools.crossover import cxTwoPoint
+from deap.tools.mutation import mutGaussian
 from deap.tools.selection import selTournament
 
 from dlgo.goboard_fast import GameState
@@ -61,12 +62,10 @@ def crossover(population: list[CNNPlayer], p: float) -> list[CNNPlayer]:
     return population
 
 
-def mutate(population: list[CNNPlayer], p: float, board_size: int):
+def mutate(population: list[CNNPlayer], p: float):
     for i in population:
         if random() < p:
-            params = i.get_parameters()
-            delta = CNNPlayer(board_size).get_parameters()
-            p_i = [x + dx * (random() < 0.05) for x, dx in zip(params, delta)]
+            p_i = mutGaussian(i.get_parameters(), mu=0, sigma=0.1, indpb=0.01)[0]
             i.set_parameters(p_i)
 
     return population
@@ -91,8 +90,8 @@ def train(board_size: int, pop_size: int, p_crossover: float, p_mutate: float):
 
         evaluate(population, board_size)
         population = select(population)
-        population = crossover(population, p_crossover)
-        population = mutate(population, p_mutate, board_size)
+        population = crossover(population, p=p_crossover)
+        population = mutate(population, p=p_mutate)
 
         print(f"{time() - start_time:.2f} s")
 
