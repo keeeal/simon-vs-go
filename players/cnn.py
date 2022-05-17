@@ -1,88 +1,43 @@
-
-from csv import reader, writer
-from itertools import chain
-from math import ceil, prod
 from pathlib import Path
-from random import gauss
+from time import time
+
+import numpy as np
 
 import torch
-from torch.nn import ReflectionPad2d
+from torch import Tensor, dtype, nn
 
 from dlgo.goboard_fast import GameState, Move
-from dlgo.gotypes import Player, Point
+from dlgo.encoders import SimpleEncoder
 
-from model.unet import UNet2d
+from torchvision.models import squeezenet1_1
 
 
 class CNNPlayer:
-    def __init__(self, board_size: int) -> None:
-        self.board_size = board_size
-        self.noise_size = ceil(board_size / 2)
-        self.noise_shape = [1] + 2 * [self.noise_size]
-        self.pad = ReflectionPad2d(2 * (0, self.board_size - self.noise_size))
-        self.model = UNet2d(in_channels=2, out_channels=1, width=16, n_pool=3)
+    def __init__(self, dtype: dtype = torch.float32, device: str = "cpu"):
+        super().__init__()
+        self.dtype = dtype
+        self.device = device
         self.fitness = 0
-
-        self.set_noise([gauss(mu=0, sigma=.5) for _ in range(prod(self.noise_shape))])
+        self.encoder = SimpleEncoder((19, 19))
+        self.model = nn.Sequential(
+            nn.Conv2d(self.encoder.num_planes, 3, 1),
+            squeezenet1_1(num_classes=1),
+        ).to(dtype=dtype, device=device)
+        self.model.eval()
 
     def select_move(self, game: GameState) -> Move:
-        state = torch.zeros([1] + 2 * [self.board_size])
-        state = torch.concat((state, self.padded_noise))
-        state = state.unsqueeze(0)
+        moves = game.legal_moves()
+        batch = map(game.apply_move, moves)
+        batch = map(self.encoder.encode, batch)
+        batch = torch.tensor(np.array(list(batch))).to(dtype=self.dtype, device=self.device)
+        value = self.model(batch)
+        return moves[value.argmax().item()]
 
-        for point, go_string in game.board._grid.items():
-            if go_string:
-                state[0, 0, point.row - 1, point.col - 1] = (
-                    -1 if go_string.color == Player.black else 1
-                )
+    def parameters(self) -> list[Tensor]:
+        return list(self.model.parameters())
 
-        with torch.no_grad():
-            value = self.model(state).squeeze()
+    def save(self, file: Path):
+        torch.save(self.model.state_dict(), file)
 
-        while True:
-            best_value = value.max()
-
-            if best_value < .15:
-                return Move.pass_turn()
-
-            row, col = (value == best_value).nonzero()[0]
-            point = Point(row.item() + 1, col.item() + 1)
-            move = Move.play(point)
-
-            if game.is_valid_move(move):
-                return move
-
-            value[point.row - 1, point.col - 1] = -torch.inf
-
-    def set_noise(self, value: list[float]):
-        self.noise = torch.tensor(value).reshape(self.noise_shape)
-        self.padded_noise = self.pad(self.noise)
-
-    def get_parameters(self) -> list[float]:
-        params = [p.flatten().tolist() for p in self.model.parameters()]
-        params.append(self.noise.flatten().tolist())
-        return list(chain(*params))
-
-    def set_parameters(self, value: list[float]):
-        state = self.model.state_dict()
-        a = 0
-
-        for k, p in state.items():
-            b = p.numel()
-            state[k] = torch.tensor(value[a:a + b]).reshape(p.shape)
-            a += b
-
-        self.model.load_state_dict(state)
-        self.set_noise(value[a:])
-
-    def save_parameters(self, file: Path):
-        params = self.get_parameters()
-
-        with open(file, "w") as f:
-            writer(f).writerow(params)
-
-    def load_parameters(self, file: Path):
-        with open(file) as f:
-            params = list(map(float, next(reader(f))))
-
-        self.set_parameters(params)
+    def load(self, file: Path):
+        self.model.load_state_dict(torch.load(file))

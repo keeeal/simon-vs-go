@@ -1,4 +1,5 @@
-from random import randint
+from itertools import product
+from random import choice
 
 from dlgo.goboard_fast import GameState, Move
 from dlgo.gotypes import Point
@@ -6,16 +7,12 @@ from dlgo.gotypes import Point
 
 class RandomPlayer:
     def __init__(self, board_size: int) -> None:
-        pass
-    
+        self.moves = [
+            Move.play(Point(row + 1, col + 1))
+            for row, col in product(range(board_size), repeat=2)
+        ]
+        self.moves.append(Move.pass_turn())
+
     def select_move(self, game: GameState) -> Move:
-        while True:
-            point = Point(
-                row=randint(1, game.board.num_rows),
-                col=randint(1, game.board.num_cols),
-            )
-
-            move = Move.play(point)
-
-            if game.is_valid_move(move):
-                return move
+        valid_moves = list(map(game.is_valid_move, self.moves))
+        return choice(valid_moves)
